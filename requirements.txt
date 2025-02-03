@@ -5,3 +5,4 @@ tiktoken
 torch 
 sentence_transformers
 sentencepiece
+babel

@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 from babel.dates import format_date
 import calendar
+import azure.functions as func
+import json
 
 class CreneauExtractor:
     def __init__(self):
@@ -22,7 +24,13 @@ class CreneauExtractor:
             "six": "6", "sept": "7", "huit": "8", "neuf": "9", "dix": "10", "onze": "11", "douze": "12", "treize": "13", "quatorze": "14",
             "quinze": "15", "seize": "16", "dix-sept": "17", "dix-huit": "18", "dix-neuf": "19", "vingt": "20", "vingt-et-un": "21",
             "vingt-deux": "22", "vingt-trois": "23", "trente": "30", "trente-et-un": "31", 'minuit': '00h', 'midi': '12h',
-            'matin': '9h', 'après-midi': '14h', 'soir': '18h', 'soirée': '18h'}
+            'matin': '9h', 'après-midi': '14h', 'soir': '18h', 'soirée': '18h','deux heures': '2h', 'trois heures': '3h', 'quatre heures': '4h',
+            'cinq heures': '5h', 'six heures': '6h', 'sept heures': '7h', 'huit heures': '8h',
+            'neuf heures': '9h', 'dix heures': '10h', 'onze heures': '11h', 'douze heures': '12h',
+            'treize heures': '13h', 'quatorze heures': '14h', 'quinze heures': '15h',
+            'seize heures': '16h', 'dix-sept heures': '17h', 'dix-huit heures': '18h',
+            'dix-neuf heures': '19h', 'vingt heures': '20h', 'vingt et une heures': '21h',
+            'vingt-deux heures': '22h', 'vingt-trois heures': '23h',}
         
         # Correspondance des jours de la semaine
         self.weekdays_mapping = {"lundi": 0, "mardi": 1, "mercredi": 2, "jeudi": 3, "vendredi": 4, "samedi": 5, "dimanche": 6}
@@ -101,9 +109,9 @@ class CreneauExtractor:
         """Analyse le texte pour extraire une date et une heure."""
         self.logger.info(f"Traitement de l'entrée: {choix_patient}")
         choix_patient = choix_patient.lower()
+        choix_patient=self.convert_french_numbers_to_digits(choix_patient)
         choix_patient = re.sub(r'[^\w\s]', ' ', choix_patient)
         choix_patient = re.sub(r'\s+', ' ', choix_patient)
-        choix_patient=self.convert_french_numbers_to_digits(choix_patient)
         choix_patient =self.update_choix_patient(choix_patient)
         entities = self.nlp(choix_patient)
         creneau_parts = [str(ent['word']) for ent in entities if ent['entity_group'] in ("DATE", "TIME")]
@@ -129,3 +137,33 @@ class CreneauExtractor:
         else:
             self.logger.warning(f"Échec de l'analyse de la date: {creneau_choisi}")
             return None
+            
+extractor=CreneauExtractor()
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
+
+    try:
+        req_body = req.get_json()
+        query = req_body.get('text')
+
+        if not query:
+            return func.HttpResponse(
+                json.dumps({"error": "No query provided in request body"}),
+                mimetype="application/json",
+                status_code=400
+            )
+        
+        result = extractor.get_creneau(query)
+
+        return func.HttpResponse(
+            json.dumps({"response": result}),
+            mimetype="application/json"
+        )
+
+    except Exception as e:
+        logging.error(f"Error processing request: {str(e)}")
+        return func.HttpResponse(
+            json.dumps({"error": str(e)}),
+            mimetype="application/json",
+            status_code=500
+        )

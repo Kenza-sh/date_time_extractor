@@ -1,0 +1,7 @@
+azure-functions
+transformers
+dateparser
+tiktoken
+torch 
+sentence_transformers
+sentencepiece
